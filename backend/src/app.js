@@ -1,26 +1,60 @@
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
 
+import { attachOptionalSession, requireCurrentUser } from "./middleware/currentUser.js";
 import { createXaiClient } from "./realtime/xaiClient.js";
+import { requireActiveAccess } from "./services/subscriptionService.js";
 import agentRouter from "./routes/agents.js";
+import billingRouter from "./routes/billing.js";
 import conversationRouter from "./routes/conversations.js";
 import healthRouter from "./routes/health.js";
+import telephonyRouter from "./routes/telephony.js";
 import toolRouter from "./routes/tools.js";
 import { createXaiRouter } from "./routes/xai.js";
+
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function getAllowedOrigins() {
+  return process.env.APP_ORIGIN
+    ?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
 
 export function createApp({
   xaiClient = createXaiClient(),
 } = {}) {
   const app = express();
+  const allowedOrigins = getAllowedOrigins();
 
-  app.use(cors());
-  app.use(express.json());
+  app.use(cors({
+    origin: allowedOrigins?.length ? allowedOrigins : true,
+    credentials: true,
+  }));
+  app.use(express.json({ limit: "2mb" }));
+  app.use(apiLimiter);
 
   app.use("/health", healthRouter);
-  app.use("/agents", agentRouter);
-  app.use("/conversations", conversationRouter);
-  app.use("/tool", toolRouter);
-  app.use("/xai", createXaiRouter(xaiClient));
+  app.use("/billing", billingRouter);
+  app.use("/telephony", telephonyRouter);
+
+  app.use("/agents", requireCurrentUser, agentRouter);
+  app.use("/conversations", requireCurrentUser, conversationRouter);
+  app.use("/tool", attachOptionalSession, toolRouter);
+  app.use("/xai", requireCurrentUser, requireActiveAccess, aiLimiter, createXaiRouter(xaiClient));
 
   app.use((req, res) => {
     res.status(404).json({
