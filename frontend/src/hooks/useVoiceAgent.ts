@@ -51,8 +51,14 @@ export function useVoiceAgent(agentId = "elyashar") {
       streamRef.current = stream;
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const fallbackWsBaseUrl = `${protocol}//${window.location.host}`;
+      const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL ?? fallbackWsBaseUrl;
       const clientId = getVoiceClientId();
-      const socket = new WebSocket(`${protocol}//${window.location.host}/xai/realtime?client_id=${encodeURIComponent(clientId)}&agent_id=${encodeURIComponent(agentId)}`);
+      const query = new URLSearchParams({
+        client_id: clientId,
+        agent_id: agentId,
+      });
+      const socket = new WebSocket(`${wsBaseUrl}/xai/realtime?${query.toString()}`);
       socketRef.current = socket;
 
       socket.onmessage = (message) => {
