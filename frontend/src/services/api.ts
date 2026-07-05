@@ -1,3 +1,5 @@
+import { getAccessToken } from "./auth";
+
 export type Appointment = {
   fullName: string;
   phone: string;
@@ -32,20 +34,37 @@ export type Conversation = {
   ended_at: string | null;
 };
 
+export type AccessState = {
+  status: string;
+  allowed: boolean;
+  daysRemaining: number;
+  plan: string;
+  reason?: string;
+};
+
+export type Plan = {
+  id: string;
+  name: string;
+  price_ils_monthly: number;
+  features: string[];
+};
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = await getAccessToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers: {
       "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.error ?? "לא ניתן להשלים את הפעולה כרגע");
+    throw new Error(data?.message ?? data?.error ?? "לא ניתן להשלים את הפעולה כרגע");
   }
 
   return data as T;
@@ -90,5 +109,26 @@ export const api = {
   },
   createRealtimeSession() {
     return request<{ client_secret: unknown; expires_at?: number }>("/xai/session", { method: "POST" });
+  },
+  getPlans() {
+    return request<{ success: true; plans: Plan[] }>("/billing/plans");
+  },
+  getSubscription() {
+    return request<{ success: true; subscription: unknown; access: AccessState }>("/billing/subscription");
+  },
+  startTrial(businessId?: string) {
+    return request<{ success: true; subscription: unknown; access: AccessState }>("/billing/start-trial", {
+      method: "POST",
+      body: JSON.stringify({ business_id: businessId }),
+    });
+  },
+  manualActivate(plan = "business") {
+    return request<{ success: true; subscription: unknown; access: AccessState }>("/billing/manual-activate", {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    });
+  },
+  listTelephonyProviders() {
+    return request<{ success: true; providers: Array<{ id: string; name: string; status: string; type: string }> }>("/telephony/providers");
   },
 };
