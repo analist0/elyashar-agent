@@ -8,6 +8,8 @@ const meta: Record<string, { title: string; description: string }> = {
   "/booking": { title: "קביעת פגישה", description: "בדיקת זמינות וקביעת פגישה חדשה" },
   "/dashboard": { title: "לוח בקרה", description: "לידים, פגישות ושיחות במקום אחד" },
   "/agents": { title: "ניהול סוכנים", description: "יצירה, הגדרה והטמעת סוכנים קוליים" },
+  "/billing": { title: "Plans", description: "Trial and plan management" },
+  "/telephony": { title: "Call channels", description: "Provider and SIP connection settings" },
 };
 
 export function MainLayout() {
