@@ -1,13 +1,15 @@
-import { CalendarCheck, ChartDonut, ChatCircleDots, Flask, Robot } from "@phosphor-icons/react";
+import { CalendarCheck, ChartDonut, ChatCircleDots, CreditCard, Flask, PhoneCall, Robot } from "@phosphor-icons/react";
 import { NavLink } from "react-router-dom";
 
 import { cn } from "../lib/utils";
 
 const items = [
-  { to: "/", label: "סוכן AI", icon: ChatCircleDots },
-  { to: "/booking", label: "קביעת פגישה", icon: CalendarCheck },
-  { to: "/dashboard", label: "לוח בקרה", icon: ChartDonut },
-  { to: "/agents", label: "סוכנים", icon: Robot },
+  { to: "/", label: "AI", icon: ChatCircleDots },
+  { to: "/booking", label: "Booking", icon: CalendarCheck },
+  { to: "/dashboard", label: "Dashboard", icon: ChartDonut },
+  { to: "/agents", label: "Agents", icon: Robot },
+  { to: "/billing", label: "Plans", icon: CreditCard },
+  { to: "/telephony", label: "Calls", icon: PhoneCall },
 ];
 
 export function Sidebar() {
@@ -19,8 +21,8 @@ export function Sidebar() {
           {items.map((item) => <NavItem key={item.to} {...item} />)}
         </nav>
         <div className="mt-auto rounded-2xl border border-accent/15 bg-accent/[0.06] p-4">
-          <p className="text-xs font-bold text-accent">מערכת פעילה</p>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">הסוכן מחובר וזמין לטיפול בלידים חדשים.</p>
+          <p className="text-xs font-bold text-accent">System active</p>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">Your voice agent is ready to receive new leads.</p>
         </div>
       </aside>
 
