@@ -32,6 +32,12 @@ export function attachVoiceProxy(server, {
       return;
     }
 
+    if (process.env.ALLOW_UNGATED_VOICE_WS !== "true") {
+      socket.write("HTTP/1.1 402 Payment Required\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
     wss.handleUpgrade(request, socket, head, (client) => {
       const clientId = getClientId(request);
       const agentId = requestUrl.searchParams.get("agent_id") ?? "elyashar";
