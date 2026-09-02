@@ -59,11 +59,11 @@ export function BookingForm() {
 
   if (appointment) {
     return (
-      <div className="surface p-5 md:p-7">
-        <span className="grid size-12 place-items-center rounded-xl bg-accent/10 text-accent"><CheckCircle size={28} weight="fill" /></span>
-        <h2 className="mt-5 text-2xl font-black text-white">הפגישה נקבעה בהצלחה</h2>
+      <div className="surface ambient-panel p-5 md:p-7">
+        <span className="relative grid size-12 place-items-center rounded-2xl bg-accent/10 text-accent"><CheckCircle size={28} weight="fill" /></span>
+        <h2 className="relative mt-5 text-2xl font-black text-white md:text-3xl">הפגישה נקבעה בהצלחה</h2>
         <p className="mt-2 text-sm text-zinc-500">הפרטים נשמרו ואישור יישלח ללקוח.</p>
-        <dl className="mt-6 divide-y divide-white/[0.07] rounded-xl border border-white/[0.07] bg-white/[0.02] px-4">
+        <dl className="relative mt-6 divide-y divide-white/[0.07] rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4">
           {[
             ["שם", appointment.fullName],
             ["טלפון", appointment.phone],
@@ -87,7 +87,7 @@ export function BookingForm() {
   return (
     <form onSubmit={checkAvailability} className="surface p-4 md:p-7">
       <div className="mb-7 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-accent/10 text-accent"><CalendarCheck size={23} weight="duotone" /></span>
+        <span className="grid size-11 place-items-center rounded-2xl bg-accent/10 text-accent"><CalendarCheck size={23} weight="duotone" /></span>
         <div>
           <h2 className="font-black text-white">פרטי הפגישה</h2>
           <p className="mt-1 text-xs text-zinc-500">מלאו פרטים ובחרו זמן מתאים</p>
@@ -108,13 +108,13 @@ export function BookingForm() {
         <Field label="תאריך מועדף"><Input value={form.date} onChange={(e) => update("date", e.target.value)} type="date" /></Field>
       </div>
       {error && <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-300">{error}</p>}
-      <Button type="submit" className="mt-6 w-full" disabled={Boolean(loading)}>
+      <Button type="submit" className="mt-6 h-12 w-full" disabled={Boolean(loading)}>
         {loading === "slots" ? "בודק זמינות..." : "בדוק זמינות"}
       </Button>
       {slots.length > 0 && (
         <div className="mt-7 border-t border-white/[0.07] pt-6">
           <SlotSelector slots={slots} selected={selectedSlot} onSelect={setSelectedSlot} />
-          <Button type="button" className="mt-5 w-full" disabled={!selectedSlot || Boolean(loading)} onClick={book}>
+          <Button type="button" className="mt-5 h-12 w-full" disabled={!selectedSlot || Boolean(loading)} onClick={book}>
             {loading === "booking" ? "קובע פגישה..." : "קבע פגישה"}
           </Button>
         </div>

@@ -12,6 +12,12 @@ const server = createServer(app);
 
 attachVoiceProxy(server);
 
+// Production readiness: warn on permissive CORS.
+const corsOrigin = process.env.CORS_ORIGIN || "*";
+if (corsOrigin === "*" && process.env.NODE_ENV === "production") {
+  console.warn("[SECURITY] CORS_ORIGIN is set to '*'. Restrict it to your frontend domain in production.");
+}
+
 server.listen(port, () => {
   console.log("Server started on", port);
 });

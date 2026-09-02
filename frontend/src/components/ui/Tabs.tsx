@@ -8,7 +8,7 @@ export const Tabs = Primitive.Root;
 export function TabsList({ className, ...props }: ComponentPropsWithoutRef<typeof Primitive.List>) {
   return (
     <Primitive.List
-      className={cn("flex w-full gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1", className)}
+      className={cn("scrollbar-none flex w-full gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035] p-1", className)}
       {...props}
     />
   );
@@ -17,7 +17,7 @@ export function TabsList({ className, ...props }: ComponentPropsWithoutRef<typeo
 export function TabsTrigger({ className, ...props }: ComponentPropsWithoutRef<typeof Primitive.Trigger>) {
   return (
     <Primitive.Trigger
-      className={cn("flex-1 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold text-zinc-500 transition hover:text-zinc-200 data-[state=active]:bg-white/10 data-[state=active]:text-white", className)}
+      className={cn("min-w-fit flex-1 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold text-zinc-500 transition duration-300 hover:text-zinc-200 data-[state=active]:bg-accent data-[state=active]:text-zinc-950", className)}
       {...props}
     />
   );

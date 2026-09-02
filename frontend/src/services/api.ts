@@ -1,3 +1,12 @@
+export type SubscriptionStatus = "none" | "trialing" | "active" | "expired";
+
+export type BillingStatus = {
+  status: SubscriptionStatus;
+  daysRemaining: number | null;
+  plan: string | null;
+  currentPeriodEnd: string | null;
+};
+
 export type Appointment = {
   fullName: string;
   phone: string;
@@ -20,7 +29,13 @@ export type Agent = {
   services: string[];
   telegram_chat_id: string;
   telegram_configured: boolean;
+  voice?: string;
+  language?: string;
+  personality?: string;
+  tone?: string;
+  slug?: string;
   created_at: string;
+  updated_at?: string;
 };
 
 export type Conversation = {
@@ -32,13 +47,20 @@ export type Conversation = {
   ended_at: string | null;
 };
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? "http://localhost:3000" : "");
+
+function getAuthHeader(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const devToken = import.meta.env.DEV ? "local-dev-token" : null;
+  return token || devToken ? { Authorization: `Bearer ${token ?? devToken}` } : {};
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers: {
       "content-type": "application/json",
+      ...getAuthHeader(),
       ...options.headers,
     },
   });
@@ -52,6 +74,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  register(email: string, password: string) {
+    return request<{ success: true; access_token?: string; refresh_token?: string; message: string; requiresEmailConfirmation?: boolean; user?: { id: string; email: string } }>("/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  getBillingStatus() {
+    return request<{ success: true } & BillingStatus>("/billing/status");
+  },
+
+  startTrial() {
+    return request<{ success: true; subscription: unknown }>("/billing/start-trial", { method: "POST" });
+  },
+
   checkAvailability(date: string, service: string) {
     return request<{ success: true; date: string; slots: string[] }>("/tool/check_availability", {
       method: "POST",
@@ -79,6 +116,10 @@ export const api = {
     services: string;
     telegram_bot_token: string;
     telegram_chat_id: string;
+    voice: string;
+    language: string;
+    personality: string;
+    tone: string;
   }) {
     return request<{ success: true; agent: Agent }>("/agents", {
       method: "POST",
@@ -90,5 +131,11 @@ export const api = {
   },
   createRealtimeSession() {
     return request<{ client_secret: unknown; expires_at?: number }>("/xai/session", { method: "POST" });
+  },
+  getVoiceToken(agentId?: string) {
+    return request<{ success: true; token: string; expires_in: number }>("/xai/voice-token", {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId }),
+    });
   },
 };

@@ -1,11 +1,16 @@
 import { useCallback, useRef, useState } from "react";
 
+import { api, apiBaseUrl } from "../services/api";
+
 type VoiceStatus = "idle" | "connecting" | "listening" | "speaking" | "error";
+export type MouthShape = "neutral" | "aa" | "ih" | "ou" | "ee" | "oh";
 
 export function useVoiceAgent(agentId = "elyashar") {
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [mouthShape, setMouthShape] = useState<MouthShape>("neutral");
   const socketRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -15,6 +20,8 @@ export function useVoiceAgent(agentId = "elyashar") {
   const isInterruptedRef = useRef(false);
   const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const nextPlayTimeRef = useRef(0);
+  const audioDecayRef = useRef<number | null>(null);
+  const levelRef = useRef(0);
 
   const stop = useCallback(() => {
     isStartingRef.current = false;
@@ -30,6 +37,12 @@ export function useVoiceAgent(agentId = "elyashar") {
     socketRef.current?.close();
     socketRef.current = null;
     nextPlayTimeRef.current = 0;
+    setAudioLevel(0);
+    setMouthShape("neutral");
+    if (audioDecayRef.current) {
+      window.clearTimeout(audioDecayRef.current);
+      audioDecayRef.current = null;
+    }
     setStatus("idle");
   }, []);
 
@@ -41,6 +54,9 @@ export function useVoiceAgent(agentId = "elyashar") {
     setTranscript("");
 
     try {
+      // Production flow: obtain a short-lived voice token from the backend.
+      const { token } = await api.getVoiceToken(agentId);
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -50,9 +66,13 @@ export function useVoiceAgent(agentId = "elyashar") {
       });
       streamRef.current = stream;
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const realtimeBaseUrl = apiBaseUrl || window.location.origin;
+      const protocol = realtimeBaseUrl.startsWith("https:") ? "wss:" : "ws:";
+      const host = new URL(realtimeBaseUrl).host;
       const clientId = getVoiceClientId();
-      const socket = new WebSocket(`${protocol}//${window.location.host}/xai/realtime?client_id=${encodeURIComponent(clientId)}&agent_id=${encodeURIComponent(agentId)}`);
+      const socket = new WebSocket(
+        `${protocol}//${host}/xai/realtime?client_id=${encodeURIComponent(clientId)}&token=${encodeURIComponent(token)}`,
+      );
       socketRef.current = socket;
 
       socket.onmessage = (message) => {
@@ -76,9 +96,11 @@ export function useVoiceAgent(agentId = "elyashar") {
           setStatus("speaking");
           playPcm(event.delta);
         } else if (event.type === "response.output_audio_transcript.delta") {
+          setMouthShape(inferMouthShape(event.delta));
           setTranscript((current) => current + event.delta);
         } else if (event.type === "response.done") {
           setStatus("listening");
+          setMouthShape("neutral");
           setTranscript((current) => `${current}\n`);
         } else if (event.type === "proxy.error" || event.type === "error") {
           setError(event.message ?? "אירעה שגיאה בשיחה הקולית");
@@ -137,6 +159,18 @@ export function useVoiceAgent(agentId = "elyashar") {
     for (let index = 0; index < samples.length; index += 1) {
       channel[index] = samples[index] / 32768;
     }
+    const rawLevel = computeRmsLevel(samples);
+    const attack = rawLevel > levelRef.current ? 0.72 : 0.24;
+    levelRef.current += (rawLevel - levelRef.current) * attack;
+    setAudioLevel(levelRef.current);
+    if (audioDecayRef.current) {
+      window.clearTimeout(audioDecayRef.current);
+    }
+    audioDecayRef.current = window.setTimeout(() => {
+      levelRef.current = 0;
+      setAudioLevel(0);
+      setMouthShape("neutral");
+    }, 180);
 
     const source = context.createBufferSource();
     source.buffer = buffer;
@@ -158,42 +192,90 @@ export function useVoiceAgent(agentId = "elyashar") {
     });
     audioSourcesRef.current.clear();
     nextPlayTimeRef.current = 0;
+    levelRef.current = 0;
+    setAudioLevel(0);
+    setMouthShape("neutral");
   }
 
-  return { status, transcript, error, start, stop };
+  return {
+    status,
+    transcript,
+    error,
+    audioLevel,
+    mouthShape,
+    start,
+    stop,
+  };
 }
 
-function getVoiceClientId() {
-  const storageKey = "elyashar-voice-client-id";
-  const existing = sessionStorage.getItem(storageKey);
-  if (existing) return existing;
-
-  const clientId = crypto.randomUUID();
-  sessionStorage.setItem(storageKey, clientId);
-  return clientId;
-}
-
-function resampleToPcm16(input: Float32Array, inputRate: number, outputRate: number) {
-  const ratio = inputRate / outputRate;
-  const output = new Int16Array(Math.round(input.length / ratio));
-
-  for (let index = 0; index < output.length; index += 1) {
-    const sample = input[Math.floor(index * ratio)] ?? 0;
-    output[index] = Math.max(-1, Math.min(1, sample)) * 32767;
+function getVoiceClientId(): string {
+  const key = "voice_client_id";
+  let value = localStorage.getItem(key);
+  if (!value) {
+    value = crypto.randomUUID();
+    localStorage.setItem(key, value);
   }
-
-  return output;
+  return value;
 }
 
-function bytesToBase64(bytes: Uint8Array) {
+function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
   return btoa(binary);
 }
 
-function base64ToBytes(value: string) {
-  const binary = atob(value);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function resampleToPcm16(
+  float32Array: Float32Array,
+  sourceRate: number,
+  targetRate: number,
+): Int16Array {
+  const ratio = sourceRate / targetRate;
+  const length = Math.floor(float32Array.length / ratio);
+  const result = new Int16Array(length);
+
+  for (let i = 0; i < length; i++) {
+    const index = Math.floor(i * ratio);
+    const sample = float32Array[index];
+    result[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+
+  return result;
+}
+
+function computeRmsLevel(samples: Int16Array): number {
+  if (samples.length === 0) return 0;
+
+  let sum = 0;
+  const stride = Math.max(1, Math.floor(samples.length / 900));
+  for (let index = 0; index < samples.length; index += stride) {
+    const normalized = samples[index] / 32768;
+    sum += normalized * normalized;
+  }
+
+  const rms = Math.sqrt(sum / Math.ceil(samples.length / stride));
+  return Math.min(1, Math.max(0, rms * 5.8));
+}
+
+function inferMouthShape(value: string): MouthShape {
+  const chars = value.trim().slice(-3).toLowerCase();
+  if (!chars) return "neutral";
+
+  if (/[אוuוֹוּ]/.test(chars) || chars.includes("oo") || chars.includes("ou")) return "ou";
+  if (/[איi]/.test(chars) || chars.includes("ee")) return "ee";
+  if (/[עהאa]/.test(chars)) return "aa";
+  if (/[eי]/.test(chars)) return "ih";
+  if (/[o]/.test(chars)) return "oh";
+  if (/[במפbmfp]/.test(chars)) return "neutral";
+  return "aa";
 }

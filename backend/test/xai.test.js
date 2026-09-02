@@ -53,6 +53,9 @@ test("POST /xai/session creates a client secret without exposing the API key", a
 
   const response = await fetch(`${baseUrl}/xai/session`, {
     method: "POST",
+    headers: {
+      Authorization: "Bearer local-dev-token",
+    },
   });
   const body = await response.json();
 
@@ -100,6 +103,9 @@ test("POST /xai/session returns 500 when xAI rejects the request", async () => {
   try {
     const response = await fetch(`${baseUrl}/xai/session`, {
       method: "POST",
+      headers: {
+        Authorization: "Bearer local-dev-token",
+      },
     });
     const body = await response.json();
 

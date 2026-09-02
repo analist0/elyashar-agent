@@ -2,11 +2,13 @@ import { WebSocket, WebSocketServer } from "ws";
 
 import { createSessionConfig } from "./sessionConfig.js";
 import { dispatchToolCall } from "./toolDispatcher.js";
-import { getAgent } from "../services/agentService.js";
+import { getAgentPublic } from "../services/agentServiceSupabase.js";
 import {
   endConversation,
   startConversation,
 } from "../services/conversationService.js";
+import { consumeVoiceToken } from "../services/tokenService.js";
+import { trackUsage } from "../services/usageService.js";
 
 const realtimeUrl = "wss://api.x.ai/v1/realtime?model=grok-voice-latest";
 const activeClients = new Map();
@@ -19,7 +21,7 @@ export function attachVoiceProxy(server, {
     noServer: true,
   });
 
-  server.on("upgrade", (request, socket, head) => {
+  server.on("upgrade", async (request, socket, head) => {
     const requestUrl = new URL(request.url, "http://localhost");
 
     if (requestUrl.pathname !== "/xai/realtime") {
@@ -32,15 +34,33 @@ export function attachVoiceProxy(server, {
       return;
     }
 
+    const token = requestUrl.searchParams.get("token");
+    if (!token) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    const tokenData = await consumeVoiceToken(token);
+    if (!tokenData) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    // Do not trust raw query parameters for agent identity beyond the token.
+    const agentId = tokenData.agent_id || "elyashar";
+    const userId = tokenData.user_id || "";
+    const agent = await getAgentPublic(agentId);
+
+    if (!agent) {
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
     wss.handleUpgrade(request, socket, head, (client) => {
       const clientId = getClientId(request);
-      const agentId = requestUrl.searchParams.get("agent_id") ?? "elyashar";
-      const agent = getAgent(agentId);
-
-      if (!agent) {
-        client.close(4004, "Agent not found");
-        return;
-      }
       const previousClient = activeClients.get(clientId);
 
       if (previousClient?.readyState === WebSocket.OPEN) {
@@ -49,6 +69,10 @@ export function attachVoiceProxy(server, {
 
       activeClients.set(clientId, client);
       const conversation = startConversation(agent.id);
+
+      // Track voice conversation start.
+      trackUsage(userId, "conversations", 1, { agent_id: agentId, source: "voice" }).catch(() => {});
+
       connectClientToXai(client, apiKey, WebSocketImpl, agent, () => {
         endConversation(conversation.id);
         if (activeClients.get(clientId) === client) {

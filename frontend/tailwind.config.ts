@@ -6,13 +6,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: "#090b0f",
-        panel: "#101318",
-        line: "#252a32",
-        accent: "#54e6a1",
+        canvas: "rgb(var(--color-canvas) / <alpha-value>)",
+        panel: "rgb(var(--color-panel) / <alpha-value>)",
+        line: "rgb(var(--color-line) / <alpha-value>)",
+        accent: "rgb(var(--color-accent) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ["Arial", "sans-serif"],
+        sans: ["Aptos", "Segoe UI", "Arial", "sans-serif"],
+        mono: ["Cascadia Mono", "SFMono-Regular", "Consolas", "monospace"],
       },
     },
   },

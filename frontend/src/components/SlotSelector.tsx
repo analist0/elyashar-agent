@@ -21,7 +21,7 @@ export function SlotSelector({
             type="button"
             onClick={() => onSelect(slot)}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold transition active:scale-[0.98]",
+              "flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-sm font-bold transition duration-300 active:scale-[0.98]",
               selected === slot
                 ? "border-accent bg-accent text-zinc-950"
                 : "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-accent/30",

@@ -21,6 +21,7 @@ test("POST /agents creates an agent without exposing Telegram bot token", async 
     method: "POST",
     headers: {
       "content-type": "application/json",
+      Authorization: "Bearer local-dev-token",
     },
     body: JSON.stringify({
       name: "סוכן לדוגמה",
@@ -40,7 +41,9 @@ test("POST /agents creates an agent without exposing Telegram bot token", async 
 });
 
 test("GET /agents lists available agents", async () => {
-  const response = await fetch(`${baseUrl}/agents`);
+  const response = await fetch(`${baseUrl}/agents`, {
+    headers: { Authorization: "Bearer local-dev-token" },
+  });
   const body = await response.json();
 
   assert.equal(response.status, 200);
